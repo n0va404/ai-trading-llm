@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 """
-MT5 Bridge - HTTP to ZeroMQ Bridge for MetaTrader 5
-====================================================
+Remote Control EA - HTTP to ZeroMQ Bridge
+========================================
 
-This module provides:
-1. Flask HTTP server that bridges HTTP requests to ZeroMQ for MT5 communication
-2. MT5BridgeClient class for making HTTP requests to this bridge
+This bridge connects HTTP requests (curl) to ZeroMQ for MetaTrader 5 communication.
 
 Setup:
-1. Install dependencies: pip install pyzmq flask flask-cors requests
+1. Install dependencies: pip install pyzmq flask flask-cors
 2. Start MT5 with RemoteControlEA loaded and ZeroMQ enabled
-3. Run this module directly to start the bridge server: python -m execution.mt5_bridge
-4. Or import MT5BridgeClient to make requests to the bridge
+3. Run this bridge: python bridge.py
+4. Use curl commands to interact with MT5
 
-Author: Nova & Fath (based on working bridge)
+Author: Nova & Fath
 Version: 1.0
 """
 
@@ -21,34 +19,33 @@ import zmq
 import json
 import time
 import sys
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from datetime import datetime
-from typing import Dict, Any, List, Optional
-import requests
 
 # ============================================================================
 # Configuration
 # ============================================================================
 
 # ZeroMQ connection settings
-ZMQ_HOST = "localhost"
-ZMQ_PORT = 5555
-ZMQ_TIMEOUT = 5000  # milliseconds
+ZMQ_HOST = "localhost"      # MT5 machine IP (localhost if same machine)
+ZMQ_PORT = 5555             # Must match RemoteControlEA setting
+ZMQ_TIMEOUT = 5000          # milliseconds
 
 # HTTP server settings
-HTTP_HOST = "0.0.0.0"
-HTTP_PORT = 8080
+HTTP_HOST = "0.0.0.0"       # Listen on all interfaces
+HTTP_PORT = 8080            # HTTP port for curl commands
 
 # Security settings
-API_KEY = None
-ALLOWED_IPS = ["192.168.1.0/24", "127.0.0.1", "192.168.208.1"]
+API_KEY = None              # Set to string for API key auth, None to disable
+ALLOWED_IPS = ["192.168.1.0/24", "127.0.0.1", "192.168.208.1"]          # Set to list of IPs for IP whitelist, None to disable
+# Example: ALLOWED_IPS = ["192.168.1.0/24", "127.0.0.1"]
 
 # Request logging
 LOG_REQUESTS = True
 
 # ============================================================================
-# Flask App Setup (Bridge Server)
+# Flask App Setup
 # ============================================================================
 
 app = Flask(__name__)
@@ -59,11 +56,10 @@ zmq_context = None
 zmq_socket = None
 zmq_connected = False
 
-
 def init_zmq():
     """Initialize ZeroMQ connection to MT5"""
     global zmq_context, zmq_socket, zmq_connected
-
+    
     try:
         zmq_context = zmq.Context()
         zmq_socket = zmq_context.socket(zmq.REQ)
@@ -71,70 +67,71 @@ def init_zmq():
         zmq_socket.setsockopt(zmq.RCVTIMEO, ZMQ_TIMEOUT)
         zmq_socket.setsockopt(zmq.SNDTIMEO, ZMQ_TIMEOUT)
 
-        # TCP keepalive to prevent connection drops
+        # --- ADD THESE LINES FOR KEEPALIVE ---
+        # Checks connection every 60 seconds to keep it alive
         zmq_socket.setsockopt(zmq.TCP_KEEPALIVE, 1)
         zmq_socket.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 60)
         zmq_socket.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 60)
-
+        # -------------------------------------
+        
         endpoint = f"tcp://{ZMQ_HOST}:{ZMQ_PORT}"
         zmq_socket.connect(endpoint)
         zmq_connected = True
-
-        print(f"[MT5 Bridge] Connected to MT5 at {endpoint}")
+        
+        print(f"✅ Connected to MT5 at {endpoint}")
         return True
-
+        
     except Exception as e:
-        print(f"[MT5 Bridge] Failed to connect to MT5: {e}")
+        print(f"❌ Failed to connect to MT5: {e}")
         zmq_connected = False
         return False
 
-
-def send_to_mt5(command_dict: Dict[str, Any]) -> Dict[str, Any]:
+def send_to_mt5(command_dict):
     """Send command to MT5 and return response"""
     global zmq_socket, zmq_connected
-
+    
     if not zmq_connected:
         return {"success": False, "error": "Not connected to MT5"}
-
+    
     try:
+        # Send request
         zmq_socket.send_json(command_dict)
-
+        
+        # Receive response
         if zmq_socket.poll(ZMQ_TIMEOUT):
             response = zmq_socket.recv_json()
             return response
         else:
             return {"success": False, "error": "Timeout waiting for MT5"}
-
+            
     except zmq.error.Again:
+        # Timeout - recreate socket
         zmq_connected = False
         zmq_socket.close()
         init_zmq()
         return {"success": False, "error": "Request timeout"}
-
+        
     except Exception as e:
         return {"success": False, "error": str(e)}
-
 
 def check_auth():
     """Check API key authentication"""
     if API_KEY is None:
         return True
-
+    
     key = request.headers.get('X-API-Key') or request.args.get('api_key')
     if key != API_KEY:
         return False
     return True
 
-
-def log_request(endpoint: str, data: Dict[str, Any]):
+def log_request(endpoint, data):
     """Log request for debugging"""
     if LOG_REQUESTS:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] {endpoint}: {json.dumps(data, indent=2)[:200]}")
 
-
 # ============================================================================
-# API Routes (Bridge Server Endpoints)
+# API Routes
 # ============================================================================
 
 @app.route('/')
@@ -161,82 +158,75 @@ def index():
         "connected": zmq_connected
     })
 
-
 @app.route('/ping')
 def ping():
     """Ping MT5 to check connection"""
     if not check_auth():
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-
+    
     response = send_to_mt5({"cmd": "ping", "auth": "ignored"})
     return jsonify(response)
-
 
 @app.route('/account')
 def account():
     """Get account information"""
     if not check_auth():
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-
+    
     log_request("/account", {})
     response = send_to_mt5({"cmd": "account", "auth": ""})
     return jsonify(response)
-
 
 @app.route('/positions')
 def positions():
     """Get open positions"""
     if not check_auth():
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-
+    
     log_request("/positions", {})
     response = send_to_mt5({"cmd": "positions", "auth": ""})
     return jsonify(response)
-
 
 @app.route('/orders')
 def orders():
     """Get pending orders"""
     if not check_auth():
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-
+    
     log_request("/orders", {})
     response = send_to_mt5({"cmd": "orders", "auth": ""})
     return jsonify(response)
-
 
 @app.route('/symbols')
 def symbols():
     """Get available symbols"""
     if not check_auth():
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-
+    
     log_request("/symbols", {})
     response = send_to_mt5({"cmd": "symbols", "auth": ""})
     return jsonify(response)
-
 
 @app.route('/tick/<symbol>')
 def tick(symbol):
     """Get current tick data for symbol"""
     if not check_auth():
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-
+    
     data = {"cmd": "tick", "auth": "", "symbol": symbol}
     log_request("/tick", data)
     response = send_to_mt5(data)
     return jsonify(response)
-
 
 @app.route('/ohlc/<symbol>')
 def ohlc(symbol):
     """Get OHLC data for symbol"""
     if not check_auth():
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-
-    tf = request.args.get('tf', '60')
-    count = request.args.get('count', '100')
-
+    
+    tf = request.args.get('tf', '60')      # Timeframe in minutes
+    count = request.args.get('count', '100')  # Number of bars
+    
     data = {
         "cmd": "ohlc",
         "auth": "",
@@ -248,18 +238,17 @@ def ohlc(symbol):
     response = send_to_mt5(data)
     return jsonify(response)
 
-
 @app.route('/ticks/<symbol>')
 def ticks_history(symbol):
     """Get last N ticks for a symbol"""
     if not check_auth():
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-
+    
     count = request.args.get('count', '10')
-
+    
     data = {
-        "cmd": "ticks",
-        "auth": "",
+        "cmd": "ticks", 
+        "auth": "", 
         "symbol": symbol,
         "count": int(count)
     }
@@ -267,25 +256,26 @@ def ticks_history(symbol):
     response = send_to_mt5(data)
     return jsonify(response)
 
-
 @app.route('/pending', methods=['POST'])
 def pending():
     """Place a pending order"""
     if not check_auth():
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-
+    
     params = request.get_json() or request.form.to_dict() or {}
-
+    
+    # Order Type Mapping (String to MT5 Integer)
     ORDER_TYPES = {
         "BUY_LIMIT": 2,
         "SELL_LIMIT": 3,
         "BUY_STOP": 4,
         "SELL_STOP": 5
     }
-
+    
     type_raw = params.get('type', '')
     type_int = 0
-
+    
+    # Handle string inputs (e.g., "buy_limit" or "BUY_LIMIT")
     if isinstance(type_raw, str):
         type_str = type_raw.upper()
         if type_str in ORDER_TYPES:
@@ -306,20 +296,19 @@ def pending():
         "tp": float(params.get('tp', 0)),
         "comment": params.get('comment', '')
     }
-
+    
     log_request("/pending", data)
     response = send_to_mt5(data)
     return jsonify(response)
-
 
 @app.route('/place', methods=['POST'])
 def place():
     """Place new order"""
     if not check_auth():
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-
+    
     params = request.get_json() or request.form.to_dict() or {}
-
+    
     data = {
         "cmd": "place",
         "auth": params.get('auth', ''),
@@ -331,59 +320,56 @@ def place():
         "tp": float(params.get('tp', 0)),
         "comment": params.get('comment', '')
     }
-
+    
     log_request("/place", data)
     response = send_to_mt5(data)
     return jsonify(response)
-
 
 @app.route('/close', methods=['POST'])
 def close():
     """Close specific position"""
     if not check_auth():
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-
+    
     params = request.get_json() or request.form.to_dict() or {}
-
+    
     data = {
         "cmd": "close",
         "auth": params.get('auth', ''),
         "ticket": int(params.get('ticket', 0)),
         "volume": float(params.get('volume', 0))
     }
-
+    
     log_request("/close", data)
     response = send_to_mt5(data)
     return jsonify(response)
-
 
 @app.route('/close_all', methods=['POST'])
 def close_all():
     """Close all positions (optionally filtered by symbol)"""
     if not check_auth():
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-
+    
     params = request.get_json() or request.form.to_dict() or {}
-
+    
     data = {
         "cmd": "close_all",
         "auth": params.get('auth', ''),
         "symbol": params.get('symbol', '')
     }
-
+    
     log_request("/close_all", data)
     response = send_to_mt5(data)
     return jsonify(response)
-
 
 @app.route('/modify', methods=['POST'])
 def modify():
     """Modify position SL/TP"""
     if not check_auth():
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-
+    
     params = request.get_json() or request.form.to_dict() or {}
-
+    
     data = {
         "cmd": "modify",
         "auth": params.get('auth', ''),
@@ -391,11 +377,14 @@ def modify():
         "sl": float(params.get('sl', -1)),
         "tp": float(params.get('tp', -1))
     }
-
+    
     log_request("/modify", data)
     response = send_to_mt5(data)
     return jsonify(response)
 
+# ============================================================================
+# Health check endpoint
+# ============================================================================
 
 @app.route('/health')
 def health():
@@ -408,294 +397,8 @@ def health():
     code = 200 if zmq_connected else 503
     return jsonify(status), code
 
-
 # ============================================================================
-# MT5 Bridge Client (for use by other modules)
-# ============================================================================
-
-class MT5BridgeError(Exception):
-    """Base exception for MT5 Bridge errors."""
-    pass
-
-
-class MT5BridgeConnectionError(MT5BridgeError):
-    """Raised when HTTP connection fails."""
-    pass
-
-
-class MT5BridgeResponseError(MT5BridgeError):
-    """Raised when MT5 Bridge returns success=False."""
-    pass
-
-
-class MT5BridgeClient:
-    """
-    Stateless HTTP client for MT5 Bridge service.
-
-    This client makes HTTP requests to the Flask bridge server above.
-    """
-
-    DEFAULT_BASE_URL = "http://localhost:8080"
-
-    def __init__(self, base_url: Optional[str] = None, timeout: int = 5):
-        """
-        Initialize MT5 Bridge client.
-
-        Args:
-            base_url: Base URL of MT5 Bridge (default: http://localhost:8080)
-            timeout: HTTP request timeout in seconds (default: 5)
-        """
-        self.base_url = base_url or self.DEFAULT_BASE_URL
-        self.timeout = timeout
-
-    def health_check(self) -> Dict[str, Any]:
-        """Health check for monitoring."""
-        url = f"{self.base_url}/health"
-        response = self._get(url)
-        return response
-
-    def get_tick(self, symbol: str) -> Dict[str, Any]:
-        """Get current tick data for a symbol."""
-        url = f"{self.base_url}/tick/{symbol}"
-        response = self._get(url)
-
-        # Response format from bridge: {"success": true, "data": {...}}
-        if "data" in response:
-            return response["data"]
-        return response
-
-    def get_ticks(self, symbol: str, count: int = 10) -> List[Dict[str, Any]]:
-        """Get last N ticks for a symbol."""
-        url = f"{self.base_url}/ticks/{symbol}"
-        params = {"count": count}
-        response = self._get(url, params=params)
-
-        if "data" in response:
-            return response["data"]
-        return response.get("ticks", [])
-
-    def get_ohlc(
-        self,
-        symbol: str,
-        timeframe: int = 60,
-        bars: int = 100
-    ) -> List[Dict[str, Any]]:
-        """Get OHLC candle data for a symbol."""
-        url = f"{self.base_url}/ohlc/{symbol}"
-        params = {"tf": timeframe, "count": bars}
-        response = self._get(url, params=params)
-
-        if "data" in response:
-            return response["data"]
-        return response.get("bars", [])
-
-    def get_account(self) -> Dict[str, Any]:
-        """Get account information."""
-        url = f"{self.base_url}/account"
-        response = self._get(url)
-
-        if "data" in response:
-            return response["data"]
-        return response
-
-    def get_positions(self) -> List[Dict[str, Any]]:
-        """Get all open positions."""
-        url = f"{self.base_url}/positions"
-        response = self._get(url)
-
-        if "data" in response:
-            return response["data"]
-        return response.get("positions", [])
-
-    def get_orders(self) -> List[Dict[str, Any]]:
-        """Get all pending orders."""
-        url = f"{self.base_url}/orders"
-        response = self._get(url)
-
-        if "data" in response:
-            return response["data"]
-        return response.get("orders", [])
-
-    def place_order(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Place a market order."""
-        url = f"{self.base_url}/place"
-        response = self._post(url, payload)
-        return response
-
-    def place_pending_order(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Place a pending order."""
-        url = f"{self.base_url}/pending"
-        response = self._post(url, payload)
-        return response
-
-    def _get(
-        self,
-        url: str,
-        params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """Perform HTTP GET request."""
-        try:
-            response = requests.get(
-                url,
-                params=params,
-                timeout=self.timeout
-            )
-            response.raise_for_status()
-
-            data = response.json()
-
-            # Check for MT5 Bridge error response
-            if not data.get("success", True):
-                error_msg = data.get("error", "Unknown error")
-                raise MT5BridgeResponseError(error_msg)
-
-            return data
-
-        except requests.RequestException as e:
-            raise MT5BridgeConnectionError(f"HTTP GET failed: {e}")
-        except json.JSONDecodeError as e:
-            raise MT5BridgeResponseError(f"Invalid JSON response: {e}")
-
-    def _post(
-        self,
-        url: str,
-        payload: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Perform HTTP POST request."""
-        try:
-            response = requests.post(
-                url,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=self.timeout
-            )
-            response.raise_for_status()
-
-            data = response.json()
-
-            # Check for MT5 Bridge error response
-            if not data.get("success", True):
-                error_msg = data.get("error", "Unknown error")
-                raise MT5BridgeResponseError(error_msg)
-
-            return data
-
-        except requests.RequestException as e:
-            raise MT5BridgeConnectionError(f"HTTP POST failed: {e}")
-        except json.JSONDecodeError as e:
-            raise MT5BridgeResponseError(f"Invalid JSON response: {e}")
-
-
-# ============================================================================
-# Compatibility Layer (Phase 0 Integration)
-# ============================================================================
-
-class MT5Bridge:
-    """
-    Compatibility wrapper for Phase 0 interface.
-
-    DEPRECATED: Use MT5BridgeClient directly for new code.
-    """
-
-    def __init__(self, base_url: str = "http://localhost:8080"):
-        """Initialize MT5 Bridge wrapper."""
-        self._client = MT5BridgeClient(base_url=base_url)
-
-    def get_account_info(self) -> Dict[str, Any]:
-        """Get account information from MT5."""
-        return self._client.get_account()
-
-    def get_market_data(self, pair: str) -> Dict[str, Any]:
-        """Get current market data for a pair."""
-        return self._client.get_tick(pair)
-
-    def place_market_order(
-        self,
-        pair: str,
-        action: str,
-        lots: float,
-        stop_loss: Optional[float] = None,
-        take_profit: Optional[float] = None
-    ) -> Dict[str, Any]:
-        """Place a market order via MT5."""
-        order_type = 0 if action.upper() == "BUY" else 1
-
-        payload = {
-            "symbol": pair,
-            "type": order_type,
-            "volume": lots,
-            "price": 0
-        }
-
-        if stop_loss is not None:
-            payload["sl"] = stop_loss
-        if take_profit is not None:
-            payload["tp"] = take_profit
-
-        return self._client.place_order(payload)
-
-    def place_pending_order(
-        self,
-        pair: str,
-        action: str,
-        order_type: str,
-        entry_price: float,
-        lots: float,
-        stop_loss: Optional[float] = None,
-        take_profit: Optional[float] = None,
-        expiration: Optional[int] = None
-    ) -> Dict[str, Any]:
-        """Place a pending order via MT5."""
-        type_mapping = {
-            "BUY_LIMIT": "BUY_LIMIT",
-            "SELL_LIMIT": "SELL_LIMIT",
-            "BUY_STOP": "BUY_STOP",
-            "SELL_STOP": "SELL_STOP"
-        }
-
-        mt5_type = type_mapping.get(order_type.upper(), order_type)
-
-        payload = {
-            "symbol": pair,
-            "type": mt5_type,
-            "volume": lots,
-            "price": entry_price
-        }
-
-        if stop_loss is not None:
-            payload["sl"] = stop_loss
-        if take_profit is not None:
-            payload["tp"] = take_profit
-
-        if expiration is not None:
-            payload["comment"] = f"Expires: {expiration}"
-
-        return self._client.place_pending_order(payload)
-
-    def cancel_order(self, order_id: int) -> Dict[str, Any]:
-        """Cancel a pending order."""
-        raise NotImplementedError(
-            "cancel_order not implemented - MT5 Bridge API missing /cancel endpoint"
-        )
-
-    def close_position(self, position_id: int) -> Dict[str, Any]:
-        """Close an open position."""
-        # Note: This endpoint exists in the working bridge
-        url = f"{self._client.base_url}/close"
-        payload = {"ticket": position_id, "volume": 0}
-        return self._client._post(url, payload)
-
-    def get_open_positions(self) -> List[Dict[str, Any]]:
-        """Get all open positions."""
-        return self._client.get_positions()
-
-    def get_pending_orders(self) -> List[Dict[str, Any]]:
-        """Get all pending orders."""
-        return self._client.get_orders()
-
-
-# ============================================================================
-# Main - Start Bridge Server
+# Main
 # ============================================================================
 
 if __name__ == '__main__':
@@ -706,16 +409,17 @@ if __name__ == '__main__':
     print(f"HTTP:    http://{HTTP_HOST}:{HTTP_PORT}")
     print(f"Auth:    {'Enabled' if API_KEY else 'Disabled'}")
     print("=" * 60)
-
+    
     # Initialize ZeroMQ
     if not init_zmq():
-        print("\nWarning: Could not connect to MT5")
+        print("\n⚠️  Warning: Could not connect to MT5")
         print("   Make sure RemoteControlEA is running in MT5")
         print("   The bridge will keep trying to reconnect")
-
+    
     # Start HTTP server
-    print(f"\nStarting HTTP server on {HTTP_HOST}:{HTTP_PORT}")
+    print(f"\n🚀 Starting HTTP server on {HTTP_HOST}:{HTTP_PORT}")
     print("   Try: curl http://localhost:8080/ping")
     print("=" * 60)
-
+    
+    # Run Flask with threaded support for concurrent requests
     app.run(host=HTTP_HOST, port=HTTP_PORT, threaded=True, debug=False)
