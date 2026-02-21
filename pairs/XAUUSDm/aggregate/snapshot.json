@@ -1,0 +1,18 @@
+{
+  "symbol": "XAUUSDm",
+  "total_trades": 2,
+  "win_rate": 0.5,
+  "avg_pnl": 5.0,
+  "scalper": {
+    "trades": 2,
+    "win_rate": 0.5,
+    "avg_pnl": 5.0,
+    "wins": 1
+  },
+  "swing": {
+    "trades": 0,
+    "win_rate": 0.0,
+    "avg_pnl": 0.0
+  },
+  "last_updated": "2026-02-21T16:58:22"
+}

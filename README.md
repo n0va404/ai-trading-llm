@@ -2,7 +2,7 @@
 
 ## Project Status
 
-**Current Phase:** Phase 5 - Execution Engine (Decision to Order Conversion) ✅
+**Current Phase:** Phase 6 - Knowledge System (JSONL Storage + Aggregate State) ✅
 
 **Completed Phases:**
 - ✅ Phase 0: Project Skeleton
@@ -11,6 +11,7 @@
 - ✅ Phase 3: Market Data Layer (Cache-First Design)
 - ✅ Phase 4: Strategy Core (Deterministic Trading Rules)
 - ✅ Phase 5: Execution Engine (Decision to Order Conversion)
+- ✅ Phase 6: Knowledge System (JSONL Storage + Aggregate State)
 
 ### Architecture Principles
 
@@ -89,14 +90,26 @@ ai-trading-llm/
 ✅ DecisionValidationError for clear error reporting
 ✅ Legacy methods for Phase 0 compatibility
 
+### What's Implemented (Phase 6)
+
+✅ AggregateStateManager - O(1) aggregate snapshot operations
+✅ AggregatorUpdater - JSONL append-only knowledge logging
+✅ Incremental computation (no full-history scans)
+✅ Decision logging with result="unknown"
+✅ Outcome logging with result="win/loss/breakeven"
+✅ Per-strategy tracking (scalper, swing)
+✅ Thread-safe file operations
+✅ Atomic snapshot writes
+✅ Recent knowledge retrieval O(limit)
+
 ### What's NOT Implemented Yet
 
 ❌ Actual job implementations (Phase 2: placeholders only)
 ❌ Account data layer
 ❌ News data layer
-❌ Knowledge logging system
 ❌ LLM integration
 ❌ Backtesting engine
+❌ Knowledge promotion system (Phase 9)
 
 ### Next Steps
 
@@ -146,6 +159,7 @@ Required:
 - [PHASE1_OVERVIEW.md](PHASE1_OVERVIEW.md) - Phase 1 comprehensive overview
 - [PHASE2_SUMMARY.md](PHASE2_SUMMARY.md) - Phase 2 completion details
 - [PHASE2_QUICKREF.md](PHASE2_QUICKREF.md) - Scheduler usage guide
+- [PHASE6_SUMMARY.md](PHASE6_SUMMARY.md) - Phase 6 completion details
 
 ### License
 
