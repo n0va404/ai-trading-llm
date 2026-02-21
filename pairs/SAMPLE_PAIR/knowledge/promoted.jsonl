@@ -1,0 +1,4 @@
+# Knowledge file for promoted insights
+# Format: One JSON object per line
+# Contains insights promoted from backtest/live to long-term memory
+# This file is append-only - never overwrite existing entries

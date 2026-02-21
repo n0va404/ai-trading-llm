@@ -1,0 +1,27 @@
+# Global Risk Management Configuration
+#
+# This file defines global risk limits that apply across all trading pairs.
+# These are hard limits - no strategy may exceed them.
+
+# Maximum capital at risk per trade (as percentage of account balance)
+max_capital_risk_per_trade: 2.0  # 2% of account balance
+
+# Maximum total open exposure across all pairs (as percentage of account)
+max_total_exposure: 10.0  # 10% of account balance
+
+# Maximum number of concurrent trades across all pairs
+max_concurrent_trades: 5
+
+# Daily loss limit (as percentage of account balance)
+daily_loss_limit: 5.0  # 5% of account balance
+
+# Maximum stop loss distance in pips (0 = no limit)
+max_stop_loss_pips: 0
+
+# Maximum take profit distance in pips (0 = no limit)
+max_take_profit_pips: 0
+
+# Risk-to-reward ratio (minimum)
+min_risk_reward_ratio: 1.5
+
+# TODO: Adjust risk parameters based on account size and trading style

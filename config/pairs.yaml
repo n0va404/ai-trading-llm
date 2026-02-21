@@ -1,0 +1,16 @@
+# Trading Pairs Configuration
+#
+# This file defines the list of enabled trading pairs for the system.
+# Each pair will have its own isolated state, knowledge, and aggregate.
+
+pairs:
+  # Example pairs (uncomment to enable)
+  # - XAUUSDm  # Gold vs US Dollar
+  # - EURUSDm  # Euro vs US Dollar
+  # - GBPUSDm  # British Pound vs US Dollar
+  # - USDJPYm  # US Dollar vs Japanese Yen
+  # - AUDUSDm  # Australian Dollar vs US Dollar
+  # - USDCADm  # US Dollar vs Canadian Dollar
+  # - USDCHFm  # US Dollar vs Swiss Franc
+
+# TODO: Add actual trading pairs when deployed

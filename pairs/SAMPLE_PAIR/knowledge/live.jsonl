@@ -1,0 +1,3 @@
+# Knowledge file for live trades
+# Format: One JSON object per line
+# This file is append-only - never overwrite existing entries

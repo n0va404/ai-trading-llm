@@ -1,0 +1,27 @@
+# Job Cycle Configuration
+#
+# This file defines the intervals (in seconds) for various scheduled jobs.
+# The system is scheduler-driven, not event-driven.
+
+# Market data pull interval (how often to fetch current prices)
+market_data_pull_interval: 1  # seconds
+
+# Account sync interval (how often to sync account state)
+account_sync_interval: 5  # seconds
+
+# Scalper strategy decision cycle (how often to evaluate scalper opportunities)
+scalper_decision_interval: 2  # seconds
+
+# Swing strategy decision cycle (how often to evaluate swing opportunities)
+swing_decision_interval: 60  # seconds (1 minute)
+
+# News pull interval (how often to fetch news updates)
+news_pull_interval: 300  # seconds (5 minutes)
+
+# Aggregator update interval (how often to update pair aggregates)
+aggregator_update_interval: 10  # seconds
+
+# Knowledge backup interval (how often to backup knowledge files)
+knowledge_backup_interval: 3600  # seconds (1 hour)
+
+# TODO: Adjust intervals based on broker rate limits and strategy requirements

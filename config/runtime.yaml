@@ -1,0 +1,23 @@
+# Runtime Configuration
+#
+# This file controls the runtime mode and logging behavior.
+
+# System mode: backtest | paper | live
+mode: paper
+
+# Logging level: DEBUG | INFO | WARNING | ERROR | CRITICAL
+log_level: INFO
+
+# Enable verbose output (detailed debugging information)
+verbose: false
+
+# Enable decision logging (save all LLM decisions to logs/decisions/)
+log_decisions: true
+
+# Enable error logging (save errors to logs/errors/)
+log_errors: true
+
+# Timezone for timestamps (IANA timezone format)
+timezone: UTC
+
+# TODO: Update mode to 'live' when ready for production trading
