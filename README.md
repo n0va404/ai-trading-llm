@@ -2,7 +2,7 @@
 
 ## Project Status
 
-**Current Phase:** Phase 6 - Knowledge System (JSONL Storage + Aggregate State) ✅
+**Current Phase:** Phase 8 - Backtest Engine (Historical Simulation) ✅
 
 **Completed Phases:**
 - ✅ Phase 0: Project Skeleton
@@ -12,6 +12,8 @@
 - ✅ Phase 4: Strategy Core (Deterministic Trading Rules)
 - ✅ Phase 5: Execution Engine (Decision to Order Conversion)
 - ✅ Phase 6: Knowledge System (JSONL Storage + Aggregate State)
+- ⏭️ Phase 7: LLM Integration (SKIPPED)
+- ✅ Phase 8: Backtest Engine (Historical Simulation)
 
 ### Architecture Principles
 
