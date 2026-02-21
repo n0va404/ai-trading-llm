@@ -2,12 +2,13 @@
 
 ## Project Status
 
-**Current Phase:** Phase 2 - Job Cycle Engine (Scheduler) ✅
+**Current Phase:** Phase 3 - Market Data Layer (Cache-First Design) ✅
 
 **Completed Phases:**
 - ✅ Phase 0: Project Skeleton
 - ✅ Phase 1: MT5 HTTP Bridge Integration
 - ✅ Phase 2: Job Cycle Engine (Scheduler)
+- ✅ Phase 3: Market Data Layer (Cache-First Design)
 
 ### Architecture Principles
 
@@ -75,12 +76,29 @@ ai-trading-llm/
 - `aggregator_update` (10s) - Update pair aggregates
 - `knowledge_backup` (3600s) - Backup knowledge files
 
+### What's Implemented (Phase 3)
+
+✅ MarketCache - TTL-based in-memory cache
+✅ O(1) cache lookup and write operations
+✅ Thread-safe cache operations
+✅ MarketPuller - Cache-first data access
+✅ Three data types supported:
+  - `get_tick()` - Current tick data
+  - `get_ticks(count)` - Recent tick history
+  - `get_ohlc(timeframe, bars)` - OHLC candle data
+✅ Dependency injection for MT5BridgeClient
+✅ Minimizes GET requests (cache-first)
+✅ Configurable TTL per call
+✅ Force refresh capability
+✅ Legacy methods for Phase 0 compatibility
+
 ### What's NOT Implemented Yet
 
 ❌ Actual job implementations (Phase 2: placeholders only)
 ❌ Trading decision logic
 ❌ Strategy execution
-❌ Data layer implementation (pullers, sync with actual MT5 calls)
+❌ Account data layer (similar to market data)
+❌ News data layer
 ❌ LLM integration
 ❌ Order routing and validation logic
 
