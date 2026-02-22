@@ -5,7 +5,7 @@
 
 pairs:
   # Example pairs (uncomment to enable)
-  # - XAUUSDm  # Gold vs US Dollar
+  - XAUUSDm  # Gold vs US Dollar (ENABLED FOR TESTING)
   # - EURUSDm  # Euro vs US Dollar
   # - GBPUSDm  # British Pound vs US Dollar
   # - USDJPYm  # US Dollar vs Japanese Yen
