@@ -431,14 +431,11 @@ class OrchestratorState:
 
                 # Get REAL OHLC data from MT5 Bridge
                 # Use 1-minute timeframe (M1) for scalping
-                ohlc_response = self.mt5_bridge.get_ohlc(
+                ohlc_data = self.mt5_bridge.get_ohlc(
                     symbol=pair,
-                    timeframe="M1",  # 1 minute
-                    count=100  # Last 100 candles
+                    timeframe=1,  # integer (1 = M1)
+                    bars=100  # Last 100 candles
                 )
-
-                # Extract OHLC data from response
-                ohlc_data = ohlc_response.get('data', [])
 
                 # Build market context
                 bid = tick.get("bid", 0)
@@ -527,14 +524,11 @@ class OrchestratorState:
 
                 # Get REAL OHLC data from MT5 Bridge
                 # Use 5-minute timeframe (M5) for swing trading
-                ohlc_response = self.mt5_bridge.get_ohlc(
+                ohlc_data = self.mt5_bridge.get_ohlc(
                     symbol=pair,
-                    timeframe="M5",  # 5 minute
-                    count=100  # Last 100 candles
+                    timeframe=5,  # integer (5 = M5)
+                    bars=100  # Last 100 candles
                 )
-
-                # Extract OHLC data from response
-                ohlc_data = ohlc_response.get('data', [])
 
                 # Build market context
                 bid = tick.get("bid", 0)
