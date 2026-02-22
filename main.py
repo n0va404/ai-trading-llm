@@ -213,11 +213,15 @@ class OrchestratorState:
             if not self._init_validator():
                 return False
 
-            # Step 3: Initialize per-pair components
+            # Step 3: Initialize LLM client (Phase 7 - Optional)
+            if not self._init_llm_client():
+                return False
+
+            # Step 4: Initialize per-pair components
             if not self._init_per_pair_components():
                 return False
 
-            # Step 4: Initialize scheduler (Phase 2)
+            # Step 5: Initialize scheduler (Phase 2)
             if not self._init_scheduler():
                 return False
 
@@ -269,6 +273,30 @@ class OrchestratorState:
         except Exception as e:
             logger.error(f"Failed to initialize validator: {e}")
             return False
+
+    def _init_llm_client(self) -> bool:
+        """Initialize LLM client (optional)."""
+        logger.info("[INIT] Initializing LLM Client...")
+
+        try:
+            from llm.z_ai_client import get_llm_client
+            self.llm_client = get_llm_client()
+
+            if self.llm_client:
+                logger.info(f"  LLM Client: READY")
+                logger.info(f"  Model: {self.llm_client.config.model}")
+                logger.info(f"  API: {self.llm_client.config.base_url}")
+            else:
+                logger.info("  LLM Client: DISABLED (no API key)")
+                logger.info("  System will trade without LLM analysis")
+
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to initialize LLM client: {e}")
+            logger.info("  Continuing without LLM analysis...")
+            self.llm_client = None
+            return True  # LLM is optional, so don't fail
 
     def _init_per_pair_components(self) -> bool:
         """Initialize per-pair components."""
