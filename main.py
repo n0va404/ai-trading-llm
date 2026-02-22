@@ -583,22 +583,31 @@ class OrchestratorState:
         """Create account sync job function."""
         def job():
             try:
-                account = self.mt5_bridge.get_account()
+                response = self.mt5_bridge.get_account()
 
-                # Safely get account values with defaults
-                balance = account.get('balance', 0)
-                equity = account.get('equity', 0)
-                margin = account.get('margin', 0)
+                # Account data is nested under "account" key
+                account_data = response.get('account', {})
+                if not account_data:
+                    # Fallback: try response directly
+                    account_data = response
 
-                # Only log if we have valid data
-                if balance is not None and equity is not None:
-                    logger.info(
-                        f"[ACCOUNT] Balance: {balance:.2f} "
-                        f"Equity: {equity:.2f} "
-                        f"Margin: {margin if margin is not None else 0:.2f}"
-                    )
-                else:
-                    logger.warning("[ACCOUNT] Unable to fetch account data")
+                # Extract values with defaults
+                balance = account_data.get('balance', 0) or 0
+                equity = account_data.get('equity', 0) or 0
+                margin = account_data.get('margin', 0) or 0
+                profit = account_data.get('profit', 0) or 0
+                free_margin = account_data.get('freemargin', 0) or 0
+                leverage = account_data.get('leverage', 0) or 0
+
+                # Log account info
+                logger.info(
+                    f"[ACCOUNT] Balance: {balance:.2f} | "
+                    f"Equity: {equity:.2f} | "
+                    f"Margin: {margin:.2f} | "
+                    f"Profit: {profit:.2f} | "
+                    f"FreeMargin: {free_margin:.2f} | "
+                    f"Leverage: {leverage}"
+                )
 
                 self.mt5_error_count = 0  # Reset error count on success
             except Exception as e:
