@@ -2,7 +2,7 @@
 
 ## Project Status
 
-**Current Phase:** Phase 10 - Live Trading Orchestrator (Production Control Layer) ✅
+**Current Phase:** Phase 7 - LLM Integration (Read-Only Advisory Layer) ✅
 
 **Completed Phases:**
 - ✅ Phase 0: Project Skeleton
@@ -12,12 +12,14 @@
 - ✅ Phase 4: Strategy Core (Deterministic Trading Rules)
 - ✅ Phase 5: Execution Engine (Decision to Order Conversion)
 - ✅ Phase 6: Knowledge System (JSONL Storage + Aggregate State)
-- ⏭️ Phase 7: LLM Integration (SKIPPED)
+- ✅ Phase 7: LLM Integration (Read-Only Advisory Layer) **← COMPLETE**
 - ✅ Phase 8: Backtest Engine (Historical Simulation)
 - ✅ Phase 9: Knowledge Promotion Engine (Conservative Pattern Selection)
-- ✅ Phase 10: Live Trading Orchestrator (Production Control Layer) **← COMPLETE**
+- ✅ Phase 10: Live Trading Orchestrator (Production Control Layer)
 
 ### 🎉 PROJECT COMPLETE
+
+All 10 phases completed and production-ready.
 
 The Synaptrix AI Trading System is now **production-ready** and capable of live trading.
 
@@ -110,14 +112,43 @@ ai-trading-llm/
 ✅ Atomic snapshot writes
 ✅ Recent knowledge retrieval O(limit)
 
+### What's Implemented (Phase 7)
+
+✅ ZAiClient - HTTP client for Z.AI API
+✅ PromptBuilder - Minimal, context-rich prompts
+✅ DecisionSchema - Fixed JSON output validation
+✅ LLMCache - TTL-based response caching
+✅ Read-only advisory analysis
+✅ Event-driven triggers (batch, drawdown, HOLD streak, periodic)
+✅ Disabled by default (works without ZAI_API_KEY)
+✅ Non-blocking (10s timeout, no retries)
+
+### What's Implemented (Phase 8)
+
+✅ CandleDataLoader - Sequential historical data loading
+✅ BacktestExecutor - Simulated order execution
+✅ BacktestEngine - Backtest orchestrator
+✅ Candle-by-candle processing
+✅ Reuses Phase 4 strategies unchanged
+✅ Reuses Phase 5 validation
+✅ Writes to backtest.jsonl
+
+### What's Implemented (Phase 9)
+
+✅ PromotionConfig - Conservative thresholds
+✅ PatternAnalyzer - Statistical pattern analysis
+✅ KnowledgePromoter - Conservative promotion
+✅ Pattern-based promotion (not individual trades)
+✅ Quality gates (win rate, sample size, consistency)
+✅ Idempotent promotion (no duplicates)
+✅ Writes to promoted.jsonl
+
 ### What's NOT Implemented Yet
 
 ❌ Actual job implementations (Phase 2: placeholders only)
 ❌ Account data layer
 ❌ News data layer
-❌ LLM integration
-❌ Backtesting engine
-❌ Knowledge promotion system (Phase 9)
+❌ LLM integration into main trading loop (optional feature)
 
 ### Next Steps
 
@@ -154,13 +185,15 @@ Edit files in `config/` before running:
 
 ### Environment Variables
 
-Required:
-- `ZAI_API_KEY` - Z.AI API key for LLM
-- `BRAVE_API_KEY` - Brave Search API key for news
+Optional:
+- `ZAI_API_KEY` - Z.AI API key for LLM advisory features (Phase 7)
+- `BRAVE_API_KEY` - Brave Search API key for news (if implemented)
 
 ### Documentation
 
 - [README.md](README.md) - This file
+- [QUICKSETUP.md](QUICKSETUP.md) - Complete setup tutorial
+- [PROJECT_COMPLETION.md](PROJECT_COMPLETION.md) - Final project summary
 - [PHASE0_SUMMARY.md](PHASE0_SUMMARY.md) - Phase 0 completion details
 - [PHASE1_SUMMARY.md](PHASE1_SUMMARY.md) - Phase 1 completion details
 - [PHASE1_QUICKREF.md](PHASE1_QUICKREF.md) - MT5 Bridge client usage guide
@@ -168,6 +201,10 @@ Required:
 - [PHASE2_SUMMARY.md](PHASE2_SUMMARY.md) - Phase 2 completion details
 - [PHASE2_QUICKREF.md](PHASE2_QUICKREF.md) - Scheduler usage guide
 - [PHASE6_SUMMARY.md](PHASE6_SUMMARY.md) - Phase 6 completion details
+- [PHASE7_SUMMARY.md](PHASE7_SUMMARY.md) - Phase 7 completion details
+- [PHASE8_SUMMARY.md](PHASE8_SUMMARY.md) - Phase 8 completion details
+- [PHASE9_SUMMARY.md](PHASE9_SUMMARY.md) - Phase 9 completion details
+- [PHASE10_SUMMARY.md](PHASE10_SUMMARY.md) - Phase 10 completion details
 
 ### License
 

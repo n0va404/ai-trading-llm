@@ -1,119 +1,138 @@
 """
-Decision Schema
+Decision Schema - Phase 7
 
-Responsibilities:
-- Define JSON schema for LLM trading decisions
-- Validate LLM responses against schema
-- Provide structure for decision data
+JSON schema for LLM advisory responses.
+Enforces "actionability": "informational_only" constraint.
 
-This module contains ONLY schema definitions - no execution logic.
-Schemas are used to validate LLM responses before execution.
+Architecture:
+- Fixed output schema (locked fields)
+- Actionability field (informational_only)
+- Validation helper methods
+- NO execution logic
 """
 
+import logging
 from typing import Dict, Any, Optional
-import json
+
+logger = logging.getLogger(__name__)
 
 
-# Decision schema for trading decisions
-TRADING_DECISION_SCHEMA = {
+# Fixed JSON schema for LLM advisory responses
+ADVISORY_RESPONSE_SCHEMA = {
     "type": "object",
     "properties": {
-        "action": {
+        "explanation": {
             "type": "string",
-            "enum": ["BUY", "SELL", "HOLD", "CLOSE"],
-            "description": "Trading action to take"
+            "description": "Why the decision makes sense (or doesn't)"
         },
-        "confidence": {
-            "type": "number",
-            "minimum": 0.0,
-            "maximum": 1.0,
-            "description": "Confidence score (0-1)"
-        },
-        "reasoning": {
+        "bias_detected": {
             "type": "string",
-            "description": "Human-readable reasoning for the decision"
+            "enum": ["none", "recency", "loss_aversion", "overconfidence", "pattern_failing"],
+            "description": "Bias detected in recent patterns"
         },
-        "stop_loss": {
-            "type": "number",
-            "description": "Stop loss price level (optional for HOLD/CLOSE)"
+        "confidence_suggestion": {
+            "type": "string",
+            "enum": ["increase", "decrease", "hold"],
+            "description": "Suggested confidence adjustment"
         },
-        "take_profit": {
-            "type": "number",
-            "description": "Take profit price level (optional for HOLD/CLOSE)"
+        "risk_notes": {
+            "type": "string",
+            "description": "Risk factors to monitor"
         },
-        "position_size": {
-            "type": "number",
-            "description": "Position size in lots (optional for HOLD/CLOSE)"
+        "actionability": {
+            "type": "string",
+            "enum": ["informational_only"],
+            "description": "LOCKED FIELD - Must be informational_only"
         }
     },
-    "required": ["action", "confidence", "reasoning"],
+    "required": [
+        "explanation",
+        "bias_detected",
+        "confidence_suggestion",
+        "risk_notes",
+        "actionability"
+    ],
     "additionalProperties": False
 }
 
 
-# Reflection schema for trade learning
-REFLECTION_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "lesson_learned": {
-            "type": "string",
-            "description": "Key lesson from this trade"
-        },
-        "mistake_analysis": {
-            "type": "string",
-            "description": "What went wrong (if trade was a loss)"
-        },
-        "rule_adjustment": {
-            "type": "string",
-            "description": "Suggested adjustment to trading rules"
-        }
-    },
-    "required": ["lesson_learned"],
-    "additionalProperties": False
-}
-
-
-class DecisionValidator:
+class DecisionSchema:
     """
-    Validator for LLM trading decisions.
+    Validator for LLM advisory responses.
 
-    Ensures decisions match expected schema before execution.
+    **CRITICAL:** Enforces "actionability": "informational_only" constraint.
     """
 
     def __init__(self):
-        """
-        Initialize decision validator.
+        """Initialize decision schema validator."""
+        self.schema = ADVISORY_RESPONSE_SCHEMA
 
-        TODO: Setup schema validation
+    def validate_advisory_response(
+        self,
+        response: Dict[str, Any]
+    ) -> tuple[bool, Optional[str], Dict[str, Any]]:
         """
-        raise NotImplementedError("DecisionValidator.__init__ not yet implemented")
-
-    def validate_decision(self, decision: Dict[str, Any]) -> tuple[bool, Optional[str]]:
-        """
-        Validate a trading decision against schema.
+        Validate LLM advisory response against schema.
 
         Args:
-            decision: Decision dictionary from LLM
+            response: LLM response dictionary
 
         Returns:
-            Tuple of (is_valid, error_message)
-
-        TODO: Implement schema validation
-        TODO: Check required fields
-        TODO: Check value constraints
+            Tuple of (is_valid, error_message, sanitized_response)
         """
-        raise NotImplementedError("validate_decision not yet implemented")
+        # Check required fields
+        required_fields = [
+            "explanation",
+            "bias_detected",
+            "confidence_suggestion",
+            "risk_notes",
+            "actionability"
+        ]
 
-    def validate_reflection(self, reflection: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+        for field in required_fields:
+            if field not in response:
+                return False, f"Missing required field: {field}", {}
+
+        # Check actionability is locked
+        if response["actionability"] != "informational_only":
+            logger.error(
+                f"[LLM] INVALID actionability: {response['actionability']}"
+            )
+            return False, "actionability must be 'informational_only'", {}
+
+        # Check bias_detected enum
+        valid_biases = [
+            "none",
+            "recency",
+            "loss_aversion",
+            "overconfidence",
+            "pattern_failing"
+        ]
+        if response["bias_detected"] not in valid_biases:
+            return False, f"Invalid bias_detected: {response['bias_detected']}", {}
+
+        # Check confidence_suggestion enum
+        valid_suggestions = ["increase", "decrease", "hold"]
+        if response["confidence_suggestion"] not in valid_suggestions:
+            return False, f"Invalid confidence_suggestion: {response['confidence_suggestion']}", {}
+
+        # Sanitize response (remove extra fields)
+        sanitized = {
+            "explanation": response["explanation"],
+            "bias_detected": response["bias_detected"],
+            "confidence_suggestion": response["confidence_suggestion"],
+            "risk_notes": response["risk_notes"],
+            "actionability": "informational_only"  # Force lock
+        }
+
+        logger.info("[LLM] Advisory response validated")
+        return True, None, sanitized
+
+    def get_schema(self) -> Dict[str, Any]:
         """
-        Validate a reflection response against schema.
-
-        Args:
-            reflection: Reflection dictionary from LLM
+        Get the advisory response JSON schema.
 
         Returns:
-            Tuple of (is_valid, error_message)
-
-        TODO: Implement schema validation
+            JSON schema dictionary
         """
-        raise NotImplementedError("validate_reflection not yet implemented")
+        return self.schema

@@ -1,40 +1,48 @@
 """
-LLM Response Cache
+LLM Response Cache - Phase 7
 
-Responsibilities:
-- Cache LLM responses to avoid duplicate calls
-- Store prompt-response pairs
-- Provide fast lookup for similar prompts
+TTL-based cache for LLM responses.
+Reduces duplicate API calls for similar prompts.
 
-This module reduces LLM API calls by caching responses.
-It does NOT make any LLM calls - only caching.
+Architecture:
+- In-memory cache (dict-based)
+- TTL expiration (default: 5 minutes)
+- Thread-safe operations
+- LRU eviction when full
 """
 
-from typing import Dict, Any, Optional
 import hashlib
+import json
+import time
 import threading
+import logging
+from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class LLMCache:
     """
-    Thread-safe cache for LLM responses.
+    Thread-safe TTL-based cache for LLM responses.
 
-    Caches based on prompt hash to avoid duplicate API calls.
+    **CRITICAL:** This is OPTIONAL caching only.
+    - Cache miss = normal behavior
+    - LLM failure NOT caused by cache
     """
 
-    def __init__(self, max_size: int = 1000):
+    def __init__(self, max_size: int = 1000, ttl: int = 300):
         """
         Initialize LLM cache.
 
         Args:
             max_size: Maximum number of cached responses
-
-        TODO: Implement cache storage with LRU eviction
+            ttl: Time-to-live in seconds (default: 5 minutes)
         """
         self.max_size = max_size
+        self.ttl = ttl
         self._cache: Dict[str, Dict[str, Any]] = {}
+        self._access_time: Dict[str, float] = {}
         self._lock = threading.Lock()
-        raise NotImplementedError("LLMCache.__init__ not yet implemented")
 
     def get(self, prompt: str) -> Optional[Dict[str, Any]]:
         """
@@ -44,12 +52,28 @@ class LLMCache:
             prompt: Prompt string
 
         Returns:
-            Cached response or None if not found
-
-        TODO: Implement cache lookup
-        TODO: Generate prompt hash
+            Cached response or None if not found/expired
         """
-        raise NotImplementedError("get not yet implemented")
+        key = self._hash_prompt(prompt)
+
+        with self._lock:
+            if key not in self._cache:
+                return None
+
+            entry = self._cache[key]
+
+            # Check TTL
+            if time.time() - entry["timestamp"] > self.ttl:
+                # Expired
+                del self._cache[key]
+                del self._access_time[key]
+                return None
+
+            # Update access time (LRU)
+            self._access_time[key] = time.time()
+
+            logger.debug(f"[LLM Cache] Hit for prompt hash: {key[:8]}...")
+            return entry["response"]
 
     def set(self, prompt: str, response: Dict[str, Any]):
         """
@@ -58,30 +82,54 @@ class LLMCache:
         Args:
             prompt: Prompt string
             response: Response to cache
-
-        TODO: Implement cache storage
-        TODO: Handle max_size eviction
         """
-        raise NotImplementedError("set not yet implemented")
+        key = self._hash_prompt(prompt)
+
+        with self._lock:
+            # Evict oldest if full
+            if len(self._cache) >= self.max_size and key not in self._cache:
+                self._evict_oldest()
+
+            # Store entry
+            self._cache[key] = {
+                "response": response,
+                "timestamp": time.time()
+            }
+            self._access_time[key] = time.time()
+
+            logger.debug(f"[LLM Cache] Cached prompt hash: {key[:8]}...")
 
     def clear(self):
-        """
-        Clear all cached responses.
+        """Clear all cached responses."""
+        with self._lock:
+            self._cache.clear()
+            self._access_time.clear()
+            logger.info("[LLM Cache] Cleared all entries")
 
-        TODO: Implement cache clearing
-        """
-        raise NotImplementedError("clear not yet implemented")
+    def _evict_oldest(self):
+        """Evict the least recently used entry."""
+        if not self._access_time:
+            return
+
+        # Find oldest entry
+        oldest_key = min(self._access_time, key=self._access_time.get)
+
+        # Remove it
+        del self._cache[oldest_key]
+        del self._access_time[oldest_key]
+
+        logger.debug(f"[LLM Cache] Evicted LRU entry: {oldest_key[:8]}...")
 
     def _hash_prompt(self, prompt: str) -> str:
         """
-        Generate hash for prompt.
+        Generate stable hash for prompt.
 
         Args:
             prompt: Prompt string
 
         Returns:
-            Hash string
-
-        TODO: Implement stable hashing
+            SHA256 hash string
         """
-        raise NotImplementedError("_hash_prompt not yet implemented")
+        # Normalize prompt (whitespace, case for JSON keys)
+        normalized = json.dumps(prompt, sort_keys=True)
+        return hashlib.sha256(normalized.encode()).hexdigest()

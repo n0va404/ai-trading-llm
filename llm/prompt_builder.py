@@ -1,112 +1,235 @@
 """
-Prompt Builder
+Prompt Builder - Phase 7
 
-Responsibilities:
-- Build structured prompts for LLM
-- Include relevant context (market, state, knowledge)
-- Ensure prompt consistency across strategies
+Builds minimal, context-rich prompts for LLM analysis.
+LLM is ADVISORY ONLY - prompts emphasize READ-ONLY analysis.
 
-This module creates prompts - it does NOT call the LLM.
-Actual LLM calls are made by z_ai_client.
+Architecture:
+- Minimal prompts (reduce token usage)
+- Structured context (market, state, knowledge)
+- Fixed output schema constraints
+- NO decision-making prompts (analysis only)
 """
 
+import json
+import logging
 from typing import Dict, Any, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class PromptBuilder:
     """
-    Builder for structured LLM prompts.
+    Build minimal, context-rich prompts for LLM analysis.
 
-    Ensures consistent prompt format across all strategies.
+    **CRITICAL:** This builds ANALYSIS prompts only.
+    - NO decision-making prompts
+    - NO action recommendations
+    - READ-ONLY analysis only
     """
 
-    def __init__(self, strategy_type: str):
-        """
-        Initialize prompt builder for a strategy type.
+    # System directive (enforces advisory-only behavior)
+    SYSTEM_DIRECTIVE = """
+You are a READ-ONLY trading analyst for the Synaptrix AI Trading System.
 
-        Args:
-            strategy_type: 'scalper' or 'swing'
+**CRITICAL CONSTRAINTS:**
+1. You provide ANALYSIS and EXPLANATION only
+2. You DO NOT make trading decisions
+3. Your output is INFORMATIONAL ONLY
+4. You DO NOT recommend actions
+5. Trading decisions are made by rule-based strategies
 
-        TODO: Load strategy-specific prompt templates
-        """
-        self.strategy_type = strategy_type
-        raise NotImplementedError("PromptBuilder.__init__ not yet implemented")
+**Your Role:**
+- Explain WHY decisions were made
+- Identify potential biases in patterns
+- Suggest confidence adjustments (informational)
+- Note risk factors (informational)
+- Provide behavioral insights
 
-    def build_decision_prompt(
+**Output Format:**
+Return a JSON object with:
+- explanation: Why the decision makes sense (or doesn't)
+- bias_detected: Any bias in recent patterns (none/recency/loss_aversion/overconfidence)
+- confidence_suggestion: Suggested confidence adjustment (increase/decrease/hold)
+- risk_notes: Any risk factors to monitor
+- actionability: MUST be "informational_only" (locked field)
+"""
+
+    def build_explanation_prompt(
         self,
         pair: str,
-        market_data: Dict[str, Any],
-        pair_state: Dict[str, Any],
-        knowledge: List[Dict[str, Any]]
+        strategy: str,
+        decision: Dict[str, Any],
+        aggregate_state: Dict[str, Any],
+        recent_knowledge: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         """
-        Build prompt for trading decision.
+        Build prompt for decision explanation.
 
         Args:
             pair: Trading pair symbol
-            market_data: Current market data
-            pair_state: Current pair state
-            knowledge: Recent knowledge entries for context
+            strategy: Strategy name (scalper/swing)
+            decision: Trading decision dict (8-key schema)
+            aggregate_state: Aggregate state snapshot
+            recent_knowledge: Optional recent knowledge entries
 
         Returns:
             Formatted prompt string
-
-        TODO: Implement prompt building
-        TODO: Include system directive
-        TODO: Include market context
-        TODO: Include recent history from knowledge
         """
-        raise NotImplementedError("build_decision_prompt not yet implemented")
+        # Build context sections
+        market_section = self._format_market_context(decision)
+        decision_section = self._format_decision_context(decision)
+        aggregate_section = self._format_aggregate_context(aggregate_state)
+        knowledge_section = self._format_knowledge_context(recent_knowledge)
 
-    def build_reflection_prompt(
+        # Combine into prompt
+        prompt = f"""{self.SYSTEM_DIRECTIVE}
+
+**Trading Pair:** {pair}
+**Strategy:** {strategy}
+
+{market_section}
+
+{decision_section}
+
+{aggregate_section}
+
+{knowledge_section}
+
+**Task:** Explain this trading decision. Identify any biases. Suggest confidence adjustments. Note risk factors.
+**REMEMBER:** Your output is INFORMATIONAL ONLY. Return JSON with actionability="informational_only".
+"""
+        return prompt
+
+    def build_batch_analysis_prompt(
         self,
         pair: str,
-        trade_result: Dict[str, Any],
-        original_decision: Dict[str, Any]
+        decisions: List[Dict[str, Any]],
+        aggregate_state: Dict[str, Any]
     ) -> str:
         """
-        Build prompt for trade reflection/learning.
+        Build prompt for batch decision analysis.
 
         Args:
             pair: Trading pair symbol
-            trade_result: Trade outcome data
-            original_decision: Original decision that led to trade
+            decisions: List of recent decisions (max 10)
+            aggregate_state: Aggregate state snapshot
 
         Returns:
             Formatted prompt string
-
-        TODO: Implement reflection prompt building
-        TODO: Include trade outcome
-        TODO: Include original reasoning
-        TODO: Ask for lessons learned
         """
-        raise NotImplementedError("build_reflection_prompt not yet implemented")
+        # Format decisions
+        decision_lines = []
+        for i, dec in enumerate(decisions[:10], 1):
+            decision_lines.append(
+                f"Decision {i}: {dec['action']} (confidence: {dec['confidence']:.2f})"
+            )
 
-    def _format_market_context(self, market_data: Dict[str, Any]) -> str:
+        decisions_text = "\n".join(decision_lines)
+
+        prompt = f"""{self.SYSTEM_DIRECTIVE}
+
+**Trading Pair:** {pair}
+**Analysis Type:** Batch Decision Review
+
+**Recent Decisions (Last {len(decisions)}):**
+{decisions_text}
+
+{self._format_aggregate_context(aggregate_state)}
+
+**Task:** Analyze this batch of decisions for patterns, biases, and consistency. Provide behavioral insights.
+**REMEMBER:** Your output is INFORMATIONAL ONLY. Return JSON with actionability="informational_only".
+"""
+        return prompt
+
+    def build_performance_review_prompt(
+        self,
+        pair: str,
+        aggregate_state: Dict[str, Any],
+        drawdown: float,
+        win_rate: float
+    ) -> str:
         """
-        Format market data for prompt inclusion.
+        Build prompt for performance review.
 
         Args:
-            market_data: Market data dictionary
+            pair: Trading pair symbol
+            aggregate_state: Aggregate state snapshot
+            drawdown: Current drawdown percentage
+            win_rate: Current win rate percentage
 
         Returns:
-            Formatted string
-
-        TODO: Implement market formatting
+            Formatted prompt string
         """
-        raise NotImplementedError("_format_market_context not yet implemented")
+        prompt = f"""{self.SYSTEM_DIRECTIVE}
 
-    def _format_knowledge_context(self, knowledge: List[Dict[str, Any]]) -> str:
-        """
-        Format knowledge entries for prompt inclusion.
+**Trading Pair:** {pair}
+**Analysis Type:** Performance Review
 
-        Args:
-            knowledge: List of knowledge entries
+**Current Metrics:**
+- Win Rate: {win_rate:.2f}%
+- Drawdown: {drawdown:.2f}%
 
-        Returns:
-            Formatted string
+{self._format_aggregate_context(aggregate_state)}
 
-        TODO: Implement knowledge formatting
-        TODO: Prioritize recent and relevant entries
-        """
-        raise NotImplementedError("_format_knowledge_context not yet implemented")
+**Task:** Review performance. Identify concerning patterns. Suggest risk management considerations.
+**REMEMBER:** Your output is INFORMATIONAL ONLY. Return JSON with actionability="informational_only".
+"""
+        return prompt
+
+    def _format_market_context(self, decision: Dict[str, Any]) -> str:
+        """Format market data from decision."""
+        tick = decision.get("tick", {})
+        return f"""**Market Context:**
+- Bid: {tick.get('bid', 'N/A')}
+- Ask: {tick.get('ask', 'N/A')}
+- Spread: {tick.get('ask', 0) - tick.get('bid', 0):.5f}
+- Time: {decision.get('timestamp', 'N/A')}"""
+
+    def _format_decision_context(self, decision: Dict[str, Any]) -> str:
+        """Format decision data."""
+        return f"""**Decision:**
+- Action: {decision.get('action', 'N/A')}
+- Confidence: {decision.get('confidence', 0):.2f}
+- Entry Type: {decision.get('entry_type', 'N/A')}
+- Reasoning: {decision.get('reasoning', 'N/A')}"""
+
+    def _format_aggregate_context(self, state: Dict[str, Any]) -> str:
+        """Format aggregate state context."""
+        total_trades = state.get("total_trades", 0)
+        win_rate = state.get("win_rate", 0)
+        total_pnl = state.get("total_pnl", 0)
+
+        # Strategy-specific stats
+        scalper = state.get("scalper", {})
+        swing = state.get("swing", {})
+
+        return f"""**Performance Aggregate:**
+- Total Trades: {total_trades}
+- Win Rate: {win_rate:.2f}%
+- Total PnL: {total_pnl:.2f}
+
+**Scalper Stats:**
+- Trades: {scalper.get('total_trades', 0)}
+- Win Rate: {scalper.get('win_rate', 0):.2f}%
+
+**Swing Stats:**
+- Trades: {swing.get('total_trades', 0)}
+- Win Rate: {swing.get('win_rate', 0):.2f}%"""
+
+    def _format_knowledge_context(
+        self,
+        knowledge: Optional[List[Dict[str, Any]]]
+    ) -> str:
+        """Format recent knowledge context."""
+        if not knowledge:
+            return "**Recent Knowledge:** None available"
+
+        lines = ["**Recent Knowledge:**"]
+        for entry in knowledge[:5]:  # Max 5 entries
+            action = entry.get("action", "N/A")
+            result = entry.get("result", "unknown")
+            reasoning = entry.get("reasoning", "N/A")
+            lines.append(f"- {action} -> {result}: {reasoning}")
+
+        return "\n".join(lines)

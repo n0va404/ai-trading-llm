@@ -1,90 +1,222 @@
 """
-Z.AI LLM Client
+Z.AI API Client - Phase 7
 
-Responsibilities:
-- Interface with Z.AI API (or compatible LLM)
-- Handle prompt sending and response parsing
-- Manage API authentication and errors
+Minimal HTTP client for Z.AI API with timeout and error handling.
+LLM is READ-ONLY and ADVISORY ONLY - failures MUST NOT block trading.
 
-This module is a generic LLM client wrapper.
-It does NOT contain trading logic - only LLM communication.
+Architecture:
+- Stateless HTTP client (no session management)
+- Fixed JSON output schema
+- 10s timeout (never block trading)
+- No retries (LLM is non-critical)
 """
 
-from typing import Dict, Any, Optional
 import os
+import json
+import logging
+from typing import Dict, Any, Optional
+from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
-class ZAIClient:
+@dataclass
+class ZAiConfig:
+    """Z.AI client configuration."""
+    api_key: str
+    base_url: str = "https://api.z.ai/v1"
+    model: str = "claude-sonnet-4-6"
+    timeout: int = 10  # seconds
+    max_tokens: int = 1000
+    temperature: float = 0.3  # Low temperature for consistent analysis
+
+
+class ZAiClientError(Exception):
+    """Base exception for Z.AI client errors."""
+    pass
+
+
+class ZAiConnectionError(ZAiClientError):
+    """Connection or network error."""
+    pass
+
+
+class ZAiResponseError(ZAiClientError):
+    """API response error (4xx, 5xx)."""
+    pass
+
+
+class ZAiValidationError(ZAiClientError):
+    """Response validation error."""
+    pass
+
+
+class ZAiClient:
     """
-    Client for Z.AI LLM API (compatible with OpenAI/Anthropic APIs).
+    Minimal HTTP client for Z.AI API.
+
+    **CRITICAL:** This client is for ADVISORY LLM calls only.
+    - Failures MUST NOT block trading
+    - No retries (trading continues without LLM insights)
+    - Fixed timeout (10s max)
+
+    Usage:
+        client = ZAiClient(api_key="your_api_key")
+
+        response = client.get_completion(
+            prompt="Analyze this trading decision...",
+            response_schema={
+                "type": "object",
+                "properties": {...}
+            }
+        )
     """
 
-    def __init__(self, api_key: str, base_url: str = "https://api.z.ai/v1"):
+    def __init__(self, config: Optional[ZAiConfig] = None):
         """
         Initialize Z.AI client.
 
         Args:
-            api_key: Z.AI API key
-            base_url: API base URL (default: Z.AI production URL)
-
-        TODO: Implement client initialization
-        TODO: Setup HTTP session
-        TODO: Validate API key format
+            config: Client configuration (optional, loads from env if not provided)
         """
-        self.api_key = api_key
-        self.base_url = base_url
-        raise NotImplementedError("ZAIClient.__init__ not yet implemented")
+        if config is None:
+            api_key = os.getenv("ZAI_API_KEY")
+            if not api_key:
+                raise ZAiClientError(
+                    "ZAI_API_KEY not set. LLM features disabled."
+                )
+            config = ZAiConfig(api_key=api_key)
 
-    def chat(self, prompt: str, schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Send chat prompt to LLM and get structured response.
+        self.config = config
+        self._headers = {
+            "Authorization": f"Bearer {config.api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
 
-        Args:
-            prompt: Prompt string to send
-            schema: Optional JSON schema for structured output
-
-        Returns:
-            LLM response as structured dictionary
-
-        TODO: Implement API call
-        TODO: Handle structured output schema
-        TODO: Parse and validate response
-        """
-        raise NotImplementedError("chat not yet implemented")
-
-    def chat_with_history(
+    def get_completion(
         self,
-        messages: list,
-        schema: Optional[Dict[str, Any]] = None
+        prompt: str,
+        response_schema: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Send chat with conversation history to LLM.
+        Get LLM completion with JSON output.
 
         Args:
-            messages: List of message dictionaries
-            schema: Optional JSON schema for structured output
+            prompt: Input prompt for LLM
+            response_schema: Optional JSON schema for response validation
 
         Returns:
-            LLM response as structured dictionary
+            Dict with LLM response (parsed JSON)
 
-        TODO: Implement API call with history
-        TODO: Handle conversation context
+        Raises:
+            ZAiConnectionError: Network/connection error
+            ZAiResponseError: API returned error
+            ZAiValidationError: Response validation failed
         """
-        raise NotImplementedError("chat_with_history not yet implemented")
+        import requests
+
+        # Build request payload
+        payload = {
+            "model": self.config.model,
+            "max_tokens": self.config.max_tokens,
+            "temperature": self.config.temperature,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        }
+
+        # Add JSON schema constraint if provided
+        if response_schema:
+            payload["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "trading_analysis",
+                    "strict": True,
+                    "schema": response_schema
+                }
+            }
+
+        # Make API call
+        try:
+            response = requests.post(
+                f"{self.config.base_url}/chat/completions",
+                headers=self._headers,
+                json=payload,
+                timeout=self.config.timeout
+            )
+        except requests.exceptions.Timeout:
+            logger.warning("[LLM] Request timeout (>10s)")
+            raise ZAiConnectionError("Request timeout")
+        except requests.exceptions.ConnectionError as e:
+            logger.warning(f"[LLM] Connection error: {e}")
+            raise ZAiConnectionError(f"Connection error: {e}")
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"[LLM] Request error: {e}")
+            raise ZAiConnectionError(f"Request error: {e}")
+
+        # Check HTTP status
+        if response.status_code >= 400:
+            logger.warning(f"[LLM] API error: {response.status_code}")
+            raise ZAiResponseError(
+                f"API returned {response.status_code}: {response.text}"
+            )
+
+        # Parse response
+        try:
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+
+            # Parse JSON content
+            parsed = json.loads(content)
+
+            logger.info("[LLM] Got valid response")
+            return parsed
+
+        except (KeyError, IndexError, json.JSONDecodeError) as e:
+            logger.error(f"[LLM] Response parse error: {e}")
+            raise ZAiValidationError(f"Failed to parse response: {e}")
+
+    def health_check(self) -> bool:
+        """
+        Check if Z.AI API is accessible.
+
+        Returns:
+            True if API is reachable, False otherwise
+        """
+        import requests
+
+        try:
+            response = requests.get(
+                f"{self.config.base_url}/models",
+                headers=self._headers,
+                timeout=5
+            )
+            return response.status_code == 200
+        except Exception as e:
+            logger.warning(f"[LLM] Health check failed: {e}")
+            return False
 
 
-def get_llm_client() -> ZAIClient:
+def get_llm_client() -> Optional[ZAiClient]:
     """
     Factory function to get configured LLM client.
 
     Returns:
-        Configured ZAIClient instance
+        Configured ZAiClient instance, or None if ZAI_API_KEY not set
 
-    TODO: Load configuration from environment/config
-    TODO: Support multiple LLM providers (Z.AI, OpenAI, Anthropic)
+    **CRITICAL:** Returns None if API key not set - LLM is OPTIONAL.
     """
     api_key = os.getenv("ZAI_API_KEY")
     if not api_key:
-        raise ValueError("ZAI_API_KEY environment variable not set")
-    # TODO: Add more configuration options
-    raise NotImplementedError("get_llm_client not yet implemented")
+        logger.warning("[LLM] ZAI_API_KEY not set - LLM features disabled")
+        return None
+
+    try:
+        return ZAiClient()
+    except Exception as e:
+        logger.error(f"[LLM] Failed to initialize client: {e}")
+        return None

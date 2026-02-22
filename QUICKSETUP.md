@@ -40,19 +40,54 @@
 
 ## 2. API KEYS SETUP
 
-### 2.1 Z.AI API Key (Optional - Phase 7 Skipped)
+### 2.1 Z.AI API Key (Optional - For LLM Features)
 
-> **NOTE:** Phase 7 (LLM Integration) was SKIPPED in this project.
-> The system does NOT require any API keys to function.
-> Skip this section unless you plan to add LLM features later.
+> **NOTE:** Phase 7 (LLM Integration) is implemented as a READ-ONLY advisory layer.
+> The system works PERFECTLY WITHOUT LLM features.
+> Skip this section if you don't want LLM analysis features.
 
-If you want to add Z.AI API later:
+The LLM provides:
+- Decision explanations
+- Bias detection
+- Confidence adjustment suggestions
+- Risk notes
+
+**IMPORTANT:** LLM output is NON-BINDING and INFORMATIONAL ONLY.
+Trading decisions are made by rule-based strategies, NOT by LLM.
+
+If you want to enable LLM features:
 
 1. Visit: https://z.ai/
 2. Sign up for an account
 3. Navigate to API Keys section
 4. Generate new API key
 5. Copy the key
+
+**Set Environment Variable:**
+
+**Windows (PowerShell):**
+```powershell
+$env:ZAI_API_KEY="your_api_key_here"
+```
+
+**Windows (Command Prompt):**
+```cmd
+set ZAI_API_KEY=your_api_key_here
+```
+
+**Linux/Mac:**
+```bash
+export ZAI_API_KEY="your_api_key_here"
+```
+
+**Permanent Setup (Recommended):**
+
+Add to your environment variables:
+- **Windows:** System Properties → Environment Variables → New
+- **Linux/Mac:** Add to `~/.bashrc` or `~/.zshrc`:
+  ```bash
+  export ZAI_API_KEY="your_api_key_here"
+  ```
 
 ### 2.2 Brave Search API Key (Optional - For News)
 
@@ -67,9 +102,18 @@ If you want to add news features later:
 3. Generate new API key
 4. Copy the key
 
-### 2.3 Environment Variables
+Set environment variable (optional):
+```bash
+export BRAVE_API_KEY="your_api_key_here"
+```
 
-You don't need to set any environment variables for this project!
+### 2.3 Environment Variables Summary
+
+**Required:** None!
+
+**Optional:**
+- `ZAI_API_KEY` - For LLM advisory features (Phase 7)
+- `BRAVE_API_KEY` - For news features (if implemented)
 
 All configuration is done via YAML files in the `config/` directory.
 
@@ -174,6 +218,10 @@ requests>=2.28.0
 
 # YAML Parser
 pyyaml>=6.0
+
+# LLM Client (Optional - Phase 7)
+# Only required if ZAI_API_KEY is set
+anthropic>=0.40.0
 ```
 
 Install dependencies:
@@ -181,6 +229,9 @@ Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
+
+**Note:** If you don't set `ZAI_API_KEY`, the LLM features will be automatically disabled.
+The system will work perfectly without the `anthropic` package.
 
 ---
 
