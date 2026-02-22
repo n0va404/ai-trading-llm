@@ -14,6 +14,7 @@
 - ✅ Phase 6: Knowledge System (JSONL Storage + Aggregate State)
 - ⏭️ Phase 7: LLM Integration (SKIPPED)
 - ✅ Phase 8: Backtest Engine (Historical Simulation)
+- ✅ Phase 9: Knowledge Promotion Engine (Conservative Pattern Selection)
 
 ### Architecture Principles
 
