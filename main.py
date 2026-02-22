@@ -341,7 +341,7 @@ class OrchestratorState:
 
         # Market data refresh job (all pairs)
         for pair in self.enabled_pairs:
-            self.job_manager.registry.register(
+            self.job_manager.registry.register_job(
                 f"market_data_{pair}",
                 self._make_market_data_job(pair),
                 interval=self.config.job_cycles_config.get("market_data_pull_interval", 1)
@@ -349,7 +349,7 @@ class OrchestratorState:
 
         # Scalper decision jobs
         for pair in self.enabled_pairs:
-            self.job_manager.registry.register(
+            self.job_manager.registry.register_job(
                 f"scalper_decision_{pair}",
                 self._make_scalper_decision_job(pair),
                 interval=self.config.job_cycles_config.get("scalper_decision_interval", 2)
@@ -357,14 +357,14 @@ class OrchestratorState:
 
         # Swing decision jobs
         for pair in self.enabled_pairs:
-            self.job_manager.registry.register(
+            self.job_manager.registry.register_job(
                 f"swing_decision_{pair}",
                 self._make_swing_decision_job(pair),
                 interval=self.config.job_cycles_config.get("swing_decision_interval", 60)
             )
 
         # Account sync job
-        self.job_manager.registry.register(
+        self.job_manager.registry.register_job(
             "account_sync",
             self._make_account_sync_job(),
             interval=self.config.job_cycles_config.get("account_sync_interval", 5)
