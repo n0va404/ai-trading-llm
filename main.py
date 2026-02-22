@@ -429,12 +429,31 @@ class OrchestratorState:
                 puller = self.market_pullers[pair]
                 tick = puller.get_tick()
 
-                # Build market context
+                # Build market context with synthetic OHLC data for now
+                # TODO: Replace with real OHLC history
+                import random
+                bid = tick.get("bid", 0)
+                ask = tick.get("ask", 0)
+
+                # Generate synthetic OHLC candles (last 10 candles)
+                ohlc_data = []
+                for i in range(10):
+                    open_p = bid + random.uniform(-50, 50)
+                    high_p = max(open_p, bid) + random.uniform(0, 30)
+                    low_p = min(open_p, bid) - random.uniform(0, 30)
+                    close_p = bid + random.uniform(-20, 20)
+                    ohlc_data.append({
+                        "open": open_p,
+                        "high": high_p,
+                        "low": low_p,
+                        "close": close_p
+                    })
+
                 market_data = {
-                    "bid": tick.get("bid", 0),
-                    "ask": tick.get("ask", 0),
+                    "bid": bid,
+                    "ask": ask,
                     "spread": tick.get("spread", 0),
-                    "ohlc_data": []  # TODO: Add OHLC history
+                    "ohlc_data": ohlc_data
                 }
 
                 # Get decision from strategy (Phase 4)
@@ -466,7 +485,7 @@ class OrchestratorState:
                                 "timestamp": tick.get("timestamp", ""),
                                 "entry_type": "market",
                                 "pending_type": "none",
-                                "reasoning": decision.get("reasoning", "")
+                                "reasoning": decision.get("reason", "")
                             },
                             aggregate_state=aggregate
                         )
@@ -510,12 +529,31 @@ class OrchestratorState:
                 puller = self.market_pullers[pair]
                 tick = puller.get_tick()
 
-                # Build market context
+                # Build market context with synthetic OHLC data
+                # TODO: Replace with real OHLC history
+                import random
+                bid = tick.get("bid", 0)
+                ask = tick.get("ask", 0)
+
+                # Generate synthetic OHLC candles (last 50 candles for swing)
+                ohlc_data = []
+                for i in range(50):
+                    open_p = bid + random.uniform(-100, 100)
+                    high_p = max(open_p, bid) + random.uniform(0, 50)
+                    low_p = min(open_p, bid) - random.uniform(0, 50)
+                    close_p = bid + random.uniform(-40, 40)
+                    ohlc_data.append({
+                        "open": open_p,
+                        "high": high_p,
+                        "low": low_p,
+                        "close": close_p
+                    })
+
                 market_data = {
-                    "bid": tick.get("bid", 0),
-                    "ask": tick.get("ask", 0),
+                    "bid": bid,
+                    "ask": ask,
                     "spread": tick.get("spread", 0),
-                    "ohlc_data": []  # TODO: Add OHLC history
+                    "ohlc_data": ohlc_data
                 }
 
                 # Get decision from strategy (Phase 4)
