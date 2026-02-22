@@ -584,11 +584,22 @@ class OrchestratorState:
         def job():
             try:
                 account = self.mt5_bridge.get_account()
-                logger.info(
-                    f"[ACCOUNT] Balance: {account.get('balance'):.2f} "
-                    f"Equity: {account.get('equity'):.2f} "
-                    f"Margin: {account.get('margin'):.2f}"
-                )
+
+                # Safely get account values with defaults
+                balance = account.get('balance', 0)
+                equity = account.get('equity', 0)
+                margin = account.get('margin', 0)
+
+                # Only log if we have valid data
+                if balance is not None and equity is not None:
+                    logger.info(
+                        f"[ACCOUNT] Balance: {balance:.2f} "
+                        f"Equity: {equity:.2f} "
+                        f"Margin: {margin if margin is not None else 0:.2f}"
+                    )
+                else:
+                    logger.warning("[ACCOUNT] Unable to fetch account data")
+
                 self.mt5_error_count = 0  # Reset error count on success
             except Exception as e:
                 self._handle_mt5_error("Account sync failed", e)
