@@ -370,6 +370,11 @@ class OrchestratorState:
             interval=self.config.job_cycles_config.get("account_sync_interval", 5)
         )
 
+        # Register all jobs in timer registry
+        for job_name in self.job_manager.registry.get_all_job_names():
+            interval = self.job_manager.registry.get_job_interval(job_name)
+            self.job_manager.timer_registry.register(job_name, interval)
+
         logger.info(f"  Registered {len(self.job_manager.registry.get_all_job_names())} jobs")
 
     def _make_market_data_job(self, pair: str):
@@ -414,6 +419,48 @@ class OrchestratorState:
                     f"(confidence: {decision['confidence']:.2f})"
                 )
 
+                # LLM Analysis (Phase 7) - Get insights
+                if self.llm_client:
+                    try:
+                        from llm import PromptBuilder, DecisionSchema
+                        builder = PromptBuilder()
+                        schema = DecisionSchema()
+
+                        # Build prompt for LLM
+                        aggregate = self.aggregators[pair].get_snapshot()
+                        prompt = builder.build_explanation_prompt(
+                            pair=pair,
+                            strategy="scalper",
+                            decision={
+                                "action": decision["decision"],
+                                "confidence": decision["confidence"],
+                                "tick": tick,
+                                "timestamp": tick.get("timestamp", ""),
+                                "entry_type": "market",
+                                "pending_type": "none",
+                                "reasoning": decision.get("reasoning", "")
+                            },
+                            aggregate_state=aggregate
+                        )
+
+                        # Get LLM analysis
+                        llm_response = self.llm_client.get_completion(
+                            prompt=prompt,
+                            response_schema=schema.get_schema()
+                        )
+
+                        # Validate and log LLM insights
+                        is_valid, error, sanitized = schema.validate_advisory_response(llm_response)
+                        if is_valid:
+                            logger.info(f"[LLM] {pair} Analysis:")
+                            logger.info(f"  Explanation: {sanitized['explanation']}")
+                            logger.info(f"  Bias: {sanitized['bias_detected']}")
+                            logger.info(f"  Confidence: {sanitized['confidence_suggestion']}")
+                            logger.info(f"  Risk: {sanitized['risk_notes']}")
+                    except Exception as llm_error:
+                        logger.warning(f"[LLM] {pair} Analysis failed: {llm_error}")
+                        # Continue trading even if LLM fails
+
                 # Execute if not HOLD
                 if decision["decision"] != "HOLD":
                     self._execute_decision(pair, decision)
@@ -452,6 +499,48 @@ class OrchestratorState:
                     f"[SWING] {pair}: {decision['decision']} "
                     f"(confidence: {decision['confidence']:.2f})"
                 )
+
+                # LLM Analysis (Phase 7) - Get insights
+                if self.llm_client:
+                    try:
+                        from llm import PromptBuilder, DecisionSchema
+                        builder = PromptBuilder()
+                        schema = DecisionSchema()
+
+                        # Build prompt for LLM
+                        aggregate = self.aggregators[pair].get_snapshot()
+                        prompt = builder.build_explanation_prompt(
+                            pair=pair,
+                            strategy="swing",
+                            decision={
+                                "action": decision["decision"],
+                                "confidence": decision["confidence"],
+                                "tick": tick,
+                                "timestamp": tick.get("timestamp", ""),
+                                "entry_type": "market",
+                                "pending_type": "none",
+                                "reasoning": decision.get("reasoning", "")
+                            },
+                            aggregate_state=aggregate
+                        )
+
+                        # Get LLM analysis
+                        llm_response = self.llm_client.get_completion(
+                            prompt=prompt,
+                            response_schema=schema.get_schema()
+                        )
+
+                        # Validate and log LLM insights
+                        is_valid, error, sanitized = schema.validate_advisory_response(llm_response)
+                        if is_valid:
+                            logger.info(f"[LLM] {pair} Analysis:")
+                            logger.info(f"  Explanation: {sanitized['explanation']}")
+                            logger.info(f"  Bias: {sanitized['bias_detected']}")
+                            logger.info(f"  Confidence: {sanitized['confidence_suggestion']}")
+                            logger.info(f"  Risk: {sanitized['risk_notes']}")
+                    except Exception as llm_error:
+                        logger.warning(f"[LLM] {pair} Analysis failed: {llm_error}")
+                        # Continue trading even if LLM fails
 
                 # Execute if not HOLD
                 if decision["decision"] != "HOLD":
