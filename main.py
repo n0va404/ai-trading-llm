@@ -429,31 +429,26 @@ class OrchestratorState:
                 puller = self.market_pullers[pair]
                 tick = puller.get_tick()
 
-                # Build market context with synthetic OHLC data for now
-                # TODO: Replace with real OHLC history
-                import random
+                # Get REAL OHLC data from MT5 Bridge
+                # Use 1-minute timeframe (M1) for scalping
+                ohlc_response = self.mt5_bridge.get_ohlc(
+                    symbol=pair,
+                    timeframe="M1",  # 1 minute
+                    count=100  # Last 100 candles
+                )
+
+                # Extract OHLC data from response
+                ohlc_data = ohlc_response.get('data', [])
+
+                # Build market context
                 bid = tick.get("bid", 0)
                 ask = tick.get("ask", 0)
-
-                # Generate synthetic OHLC candles (last 10 candles)
-                ohlc_data = []
-                for i in range(10):
-                    open_p = bid + random.uniform(-50, 50)
-                    high_p = max(open_p, bid) + random.uniform(0, 30)
-                    low_p = min(open_p, bid) - random.uniform(0, 30)
-                    close_p = bid + random.uniform(-20, 20)
-                    ohlc_data.append({
-                        "open": open_p,
-                        "high": high_p,
-                        "low": low_p,
-                        "close": close_p
-                    })
 
                 market_data = {
                     "bid": bid,
                     "ask": ask,
                     "spread": tick.get("spread", 0),
-                    "ohlc_data": ohlc_data
+                    "ohlc_data": ohlc_data  # REAL data from MT5
                 }
 
                 # Get decision from strategy (Phase 4)
@@ -463,7 +458,8 @@ class OrchestratorState:
                 # Log decision
                 logger.info(
                     f"[SCALPER] {pair}: {decision['decision']} "
-                    f"(confidence: {decision['confidence']:.2f})"
+                    f"(confidence: {decision['confidence']:.2f}) "
+                    f"[OHLC: {len(ohlc_data)} M1 candles]"
                 )
 
                 # LLM Analysis (Phase 7) - Get insights
@@ -529,31 +525,26 @@ class OrchestratorState:
                 puller = self.market_pullers[pair]
                 tick = puller.get_tick()
 
-                # Build market context with synthetic OHLC data
-                # TODO: Replace with real OHLC history
-                import random
+                # Get REAL OHLC data from MT5 Bridge
+                # Use 5-minute timeframe (M5) for swing trading
+                ohlc_response = self.mt5_bridge.get_ohlc(
+                    symbol=pair,
+                    timeframe="M5",  # 5 minute
+                    count=100  # Last 100 candles
+                )
+
+                # Extract OHLC data from response
+                ohlc_data = ohlc_response.get('data', [])
+
+                # Build market context
                 bid = tick.get("bid", 0)
                 ask = tick.get("ask", 0)
-
-                # Generate synthetic OHLC candles (last 50 candles for swing)
-                ohlc_data = []
-                for i in range(50):
-                    open_p = bid + random.uniform(-100, 100)
-                    high_p = max(open_p, bid) + random.uniform(0, 50)
-                    low_p = min(open_p, bid) - random.uniform(0, 50)
-                    close_p = bid + random.uniform(-40, 40)
-                    ohlc_data.append({
-                        "open": open_p,
-                        "high": high_p,
-                        "low": low_p,
-                        "close": close_p
-                    })
 
                 market_data = {
                     "bid": bid,
                     "ask": ask,
                     "spread": tick.get("spread", 0),
-                    "ohlc_data": ohlc_data
+                    "ohlc_data": ohlc_data  # REAL data from MT5
                 }
 
                 # Get decision from strategy (Phase 4)
@@ -563,7 +554,8 @@ class OrchestratorState:
                 # Log decision
                 logger.info(
                     f"[SWING] {pair}: {decision['decision']} "
-                    f"(confidence: {decision['confidence']:.2f})"
+                    f"(confidence: {decision['confidence']:.2f}) "
+                    f"[OHLC: {len(ohlc_data)} M5 candles]"
                 )
 
                 # LLM Analysis (Phase 7) - Get insights
