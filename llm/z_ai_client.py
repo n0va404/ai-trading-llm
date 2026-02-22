@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class ZAiConfig:
     """Z.AI client configuration."""
     api_key: str
-    base_url: str = "https://api.z.ai/api/paas/v4/"  # Z.AI API endpoint
+    base_url: str = "https://api.z.ai/api/coding/paas/v4"  # Z.AI API endpoint (DO NOT CHANGE)
     model: str = "glm-4.7"  # GLM-4.7 model
     timeout: int = 10  # seconds
     max_tokens: int = 1000

@@ -28,11 +28,11 @@ print(f'\nAPI Key (masked): {"*" * (len(api_key) - 4)}{api_key[-4:]}')
 print('\nInitializing OpenAI SDK client...')
 client = OpenAI(
     api_key=api_key,
-    base_url="https://api.z.ai/api/paas/v4/",
+    base_url="https://api.z.ai/api/coding/paas/v4",
 )
 
 print('Client initialized!')
-print(f'Base URL: https://api.z.ai/api/paas/v4/')
+print(f'Base URL: https://api.z.ai/api/coding/paas/v4')
 print(f'Model: glm-4.7')
 
 # Test API call
