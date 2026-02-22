@@ -3,7 +3,7 @@
 # This file controls the runtime mode and logging behavior.
 
 # System mode: backtest | paper | live
-mode: paper
+mode: live
 
 # Logging level: DEBUG | INFO | WARNING | ERROR | CRITICAL
 log_level: INFO

@@ -28,6 +28,19 @@ import sys
 import time
 import logging
 import signal
+import os
+from pathlib import Path
+
+# Load environment variables from .env file (if exists)
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parent / '.env'
+    if env_path.exists():
+        load_dotenv(env_path)
+        logging.info(f"Loaded environment variables from {env_path}")
+except ImportError:
+    # python-dotenv not installed - will use system environment variables
+    pass
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import yaml

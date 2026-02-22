@@ -4,16 +4,16 @@
 # These are hard limits - no strategy may exceed them.
 
 # Maximum capital at risk per trade (as percentage of account balance)
-max_capital_risk_per_trade: 2.0  # 2% of account balance
+max_capital_risk_per_trade: 10.0 # 2% of account balance
 
 # Maximum total open exposure across all pairs (as percentage of account)
-max_total_exposure: 10.0  # 10% of account balance
+max_total_exposure: 10.0 # 10% of account balance
 
 # Maximum number of concurrent trades across all pairs
-max_concurrent_trades: 5
+max_concurrent_trades: 10
 
 # Daily loss limit (as percentage of account balance)
-daily_loss_limit: 5.0  # 5% of account balance
+daily_loss_limit: 5.0 # 25% of account balance
 
 # Maximum stop loss distance in pips (0 = no limit)
 max_stop_loss_pips: 0
