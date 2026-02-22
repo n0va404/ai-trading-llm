@@ -13,5 +13,5 @@ pyyaml>=6.0
 python-dotenv>=1.0.0
 
 # LLM Client (Optional - Phase 7)
-# Only required if ZAI_API_KEY is set
-anthropic>=0.40.0
+# Using OpenAI SDK for Z.AI API compatibility
+openai>=1.0.0

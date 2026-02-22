@@ -1,11 +1,11 @@
 """
 Z.AI API Client - Phase 7
 
-Minimal HTTP client for Z.AI API with timeout and error handling.
+OpenAI SDK-based client for Z.AI API with timeout and error handling.
 LLM is READ-ONLY and ADVISORY ONLY - failures MUST NOT block trading.
 
 Architecture:
-- Stateless HTTP client (no session management)
+- Uses OpenAI SDK for cleaner API interaction
 - Fixed JSON output schema
 - 10s timeout (never block trading)
 - No retries (LLM is non-critical)
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class ZAiConfig:
     """Z.AI client configuration."""
     api_key: str
-    base_url: str = "https://api.z.ai/api/coding/paas/v4"  # Z.AI API endpoint
+    base_url: str = "https://api.z.ai/api/paas/v4/"  # Z.AI API endpoint
     model: str = "glm-4.7"  # GLM-4.7 model
     timeout: int = 10  # seconds
     max_tokens: int = 1000
@@ -53,7 +53,7 @@ class ZAiValidationError(ZAiClientError):
 
 class ZAiClient:
     """
-    Minimal HTTP client for Z.AI API.
+    OpenAI SDK-based client for Z.AI API.
 
     **CRITICAL:** This client is for ADVISORY LLM calls only.
     - Failures MUST NOT block trading
@@ -74,7 +74,7 @@ class ZAiClient:
 
     def __init__(self, config: Optional[ZAiConfig] = None):
         """
-        Initialize Z.AI client.
+        Initialize Z.AI client using OpenAI SDK.
 
         Args:
             config: Client configuration (optional, loads from env if not provided)
@@ -88,11 +88,20 @@ class ZAiClient:
             config = ZAiConfig(api_key=api_key)
 
         self.config = config
-        self._headers = {
-            "Authorization": f"Bearer {config.api_key}",
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        }
+
+        # Initialize OpenAI client with Z.AI configuration
+        try:
+            from openai import OpenAI
+            self._client = OpenAI(
+                api_key=config.api_key,
+                base_url=config.base_url,
+                timeout=config.timeout
+            )
+            logger.info("[LLM] OpenAI SDK client initialized")
+        except ImportError:
+            raise ZAiClientError(
+                "OpenAI SDK not installed. Run: pip install openai"
+            )
 
     def get_completion(
         self,
@@ -100,7 +109,7 @@ class ZAiClient:
         response_schema: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Get LLM completion with JSON output.
+        Get LLM completion with JSON output using OpenAI SDK.
 
         Args:
             prompt: Input prompt for LLM
@@ -114,24 +123,20 @@ class ZAiClient:
             ZAiResponseError: API returned error
             ZAiValidationError: Response validation failed
         """
-        import requests
+        # Build messages
+        messages = [{"role": "user", "content": prompt}]
 
-        # Build request payload
-        payload = {
+        # Build completion parameters
+        completion_params = {
             "model": self.config.model,
+            "messages": messages,
             "max_tokens": self.config.max_tokens,
-            "temperature": self.config.temperature,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
+            "temperature": self.config.temperature
         }
 
         # Add JSON schema constraint if provided
         if response_schema:
-            payload["response_format"] = {
+            completion_params["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
                     "name": "trading_analysis",
@@ -140,62 +145,52 @@ class ZAiClient:
                 }
             }
 
-        # Make API call
+        # Make API call using OpenAI SDK
         try:
-            response = requests.post(
-                f"{self.config.base_url}/chat/completions",
-                headers=self._headers,
-                json=payload,
-                timeout=self.config.timeout
-            )
-        except requests.exceptions.Timeout:
-            logger.warning("[LLM] Request timeout (>10s)")
-            raise ZAiConnectionError("Request timeout")
-        except requests.exceptions.ConnectionError as e:
-            logger.warning(f"[LLM] Connection error: {e}")
-            raise ZAiConnectionError(f"Connection error: {e}")
-        except requests.exceptions.RequestException as e:
-            logger.warning(f"[LLM] Request error: {e}")
-            raise ZAiConnectionError(f"Request error: {e}")
+            logger.debug(f"[LLM] Sending request to {self.config.model}")
+            completion = self._client.chat.completions.create(**completion_params)
 
-        # Check HTTP status
-        if response.status_code >= 400:
-            logger.warning(f"[LLM] API error: {response.status_code}")
-            raise ZAiResponseError(
-                f"API returned {response.status_code}: {response.text}"
-            )
-
-        # Parse response
-        try:
-            data = response.json()
-            content = data["choices"][0]["message"]["content"]
+            # Extract content
+            content = completion.choices[0].message.content
 
             # Parse JSON content
             parsed = json.loads(content)
 
-            logger.info("[LLM] Got valid response")
+            logger.info("[LLM] Got valid response from OpenAI SDK")
             return parsed
 
-        except (KeyError, IndexError, json.JSONDecodeError) as e:
-            logger.error(f"[LLM] Response parse error: {e}")
-            raise ZAiValidationError(f"Failed to parse response: {e}")
+        except json.JSONDecodeError as e:
+            logger.error(f"[LLM] Response JSON parse error: {e}")
+            raise ZAiValidationError(f"Failed to parse response JSON: {e}")
+        except Exception as e:
+            # Handle various OpenAI SDK errors
+            error_type = type(e).__name__
+
+            if "timeout" in error_type.lower() or "connection" in error_type.lower():
+                logger.warning(f"[LLM] Connection error: {e}")
+                raise ZAiConnectionError(f"Connection error: {e}")
+            elif "authentication" in error_type.lower() or "permission" in error_type.lower():
+                logger.error(f"[LLM] Authentication error: {e}")
+                raise ZAiResponseError(f"Authentication failed: {e}")
+            elif "rate" in error_type.lower():
+                logger.warning(f"[LLM] Rate limit error: {e}")
+                raise ZAiResponseError(f"Rate limit exceeded: {e}")
+            else:
+                logger.error(f"[LLM] API error: {e}")
+                raise ZAiResponseError(f"API error: {e}")
 
     def health_check(self) -> bool:
         """
-        Check if Z.AI API is accessible.
+        Check if Z.AI API is accessible using OpenAI SDK.
 
         Returns:
             True if API is reachable, False otherwise
         """
-        import requests
-
         try:
-            response = requests.get(
-                f"{self.config.base_url}/models",
-                headers=self._headers,
-                timeout=5
-            )
-            return response.status_code == 200
+            # Try to list models (lightweight health check)
+            self._client.models.list()
+            logger.info("[LLM] Health check passed")
+            return True
         except Exception as e:
             logger.warning(f"[LLM] Health check failed: {e}")
             return False
