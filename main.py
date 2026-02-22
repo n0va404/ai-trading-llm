@@ -279,6 +279,14 @@ class OrchestratorState:
         logger.info("[INIT] Initializing LLM Client...")
 
         try:
+            # Make sure .env is loaded
+            from dotenv import load_dotenv
+            from pathlib import Path
+            env_path = Path(__file__).parent / '.env'
+            if env_path.exists():
+                load_dotenv(env_path, override=False)
+                logger.info(f"  Loaded .env from {env_path}")
+
             from llm.z_ai_client import get_llm_client
             self.llm_client = get_llm_client()
 

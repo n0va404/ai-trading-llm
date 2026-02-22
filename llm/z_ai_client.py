@@ -205,6 +205,16 @@ def get_llm_client() -> Optional[ZAiClient]:
 
     **CRITICAL:** Returns None if API key not set - LLM is OPTIONAL.
     """
+    # Try to load from .env file if not already in environment
+    try:
+        from dotenv import load_dotenv
+        from pathlib import Path
+        env_path = Path(__file__).parent.parent / '.env'
+        if env_path.exists():
+            load_dotenv(env_path, override=False)  # Don't override existing env vars
+    except ImportError:
+        pass  # python-dotenv not installed, continue anyway
+
     api_key = os.getenv("ZAI_API_KEY")
     if not api_key:
         logger.warning("[LLM] ZAI_API_KEY not set - LLM features disabled")
