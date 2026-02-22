@@ -25,11 +25,11 @@ The **Synaptrix AI Trading System** is a complete, production-ready AI trading s
 | 4 | ✅ | Strategy Core (Scalper & Swing) | 4 | ~600 |
 | 5 | ✅ | Execution Engine | 2 | ~650 |
 | 6 | ✅ | Knowledge System (JSONL + Aggregator) | 2 | ~690 |
-| 7 | ⏭️ | LLM Integration (SKIPPED) | - | - |
+| 7 | ✅ | LLM Integration (Read-Only Advisory) | 4 | ~650 |
 | 8 | ✅ | Backtest Engine | 3 | ~950 |
 | 9 | ✅ | Knowledge Promotion Engine | 3 | ~900 |
 | 10 | ✅ | **Live Trading Orchestrator** | 1 | ~650 |
-| **TOTAL** | **10/10** | **COMPLETE SYSTEM** | **62** | **~6,010** |
+| **TOTAL** | **10/10** | **COMPLETE SYSTEM** | **66** | **~6,660** |
 
 ---
 
@@ -137,6 +137,31 @@ The **Synaptrix AI Trading System** is a complete, production-ready AI trading s
    - Reuses Phase 4 strategies
    - Reuses Phase 5 validation
    - Simulated execution
+
+### ✅ LLM Advisory Layer (Optional)
+
+1. **Read-Only Analysis** (Phase 7)
+   - Decision explanations
+   - Bias detection (recency, loss_aversion, overconfidence, pattern_failing)
+   - Confidence adjustment suggestions
+   - Risk notes
+
+2. **Event-Driven Triggers**
+   - Batch decisions (every 10)
+   - Drawdown alerts (>5%)
+   - HOLD streaks (>5 consecutive)
+   - Periodic reviews (hourly)
+
+3. **Non-Blocking Design**
+   - 10s timeout (fail fast)
+   - No retries (LLM is non-critical)
+   - Disabled by default (works without ZAI_API_KEY)
+   - Trading continues without LLM
+
+4. **Fixed Output Schema**
+   - Locked actionability="informational_only"
+   - 5 required fields
+   - JSON validation enforced
 
 ---
 
@@ -291,9 +316,13 @@ ai-trading-llm/
    - Incremental aggregates scale well
    - Promoted knowledge filters noise
 
-### What Skipped (Intentionally)
+### What's Optional
 
-- **Phase 7: LLM Integration** - Not needed for profitability
+- **Phase 7: LLM Integration** - Implemented but optional
+  - System works perfectly without LLM
+  - LLM provides read-only advisory insights
+  - Requires ZAI_API_KEY to enable
+  - Does NOT make trading decisions
 - **Async/Threading** - Single-threaded is sufficient
 - **Complex Optimizations** - Rule-based strategies work well
 - **Portfolio Management** - Single-pair focus is clearer
@@ -305,8 +334,8 @@ ai-trading-llm/
 **Development:**
 - **Duration:** 2 days
 - **Phases:** 10/10 complete
-- **Files:** 62 Python files
-- **Lines of Code:** ~6,010
+- **Files:** 66 Python files
+- **Lines of Code:** ~6,660
 - **Test Coverage:** All phases tested
 - **Documentation:** 10 phase summaries + quickrefs
 
@@ -319,6 +348,7 @@ ai-trading-llm/
 - **Knowledge:** Complete audit trail
 - **Backtesting:** Historical simulation
 - **Pattern Promotion:** Conservative filtering
+- **LLM Advisory:** Optional read-only insights (Phase 7)
 
 ---
 
